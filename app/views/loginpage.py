@@ -79,6 +79,9 @@ def loginpage(page: ft.Page):
         text_size=14,
     )
 
+    cspc_button_icon = ft.Icon(ft.Icons.SCHOOL_OUTLINED, size=18, color=_PRIMARY)
+    cspc_button_label = ft.Text("Continue with CSPC Email", size=14, font_family="Poppins-Medium", color=_PRIMARY)
+
     email_field = ft.TextField(
         hint_text="Email address",
         text_size=14,
@@ -162,6 +165,9 @@ def loginpage(page: ft.Page):
         if not role:
             show_snackbar("Please select a role")
             return
+        if role.strip().lower() == "admin":
+            show_snackbar("CSPC email login is disabled for Admin accounts.")
+            return
 
         try:
             # Redirect URI must exactly match one configured in Google Cloud OAuth client.
@@ -180,6 +186,20 @@ def loginpage(page: ft.Page):
             
         except Exception as ex:
             show_snackbar(str(ex))
+
+    def refresh_cspc_button_state(e=None):
+        role = (role_dropdown.value or "").strip().lower()
+        is_admin = role == "admin"
+        cspc_button.on_click = None if is_admin else cspc_login_clicked
+        cspc_button.opacity = 0.45 if is_admin else 1.0
+        cspc_button.bgcolor = _BORDER if is_admin else _CARD
+        cspc_button.border = ft.border.all(1.5, _DIVIDER if not is_admin else _FIELD_BORDER)
+        cspc_button_icon.color = _TEXT_MUTED if is_admin else _PRIMARY
+        cspc_button_label.color = _TEXT_MUTED if is_admin else _PRIMARY
+        try:
+            page.update()
+        except Exception:
+            pass
             
     # ── Buttons ──
     login_button = ft.Container(
@@ -196,8 +216,8 @@ def loginpage(page: ft.Page):
     cspc_button = ft.Container(
         content=ft.Row(
             [
-                ft.Icon(ft.Icons.SCHOOL_OUTLINED, size=18, color=_PRIMARY),
-                ft.Text("Continue with CSPC Email", size=14, font_family="Poppins-Medium", color=_PRIMARY),
+                cspc_button_icon,
+                cspc_button_label,
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=8,
@@ -211,6 +231,8 @@ def loginpage(page: ft.Page):
         on_click=cspc_login_clicked,
         animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
     )
+    role_dropdown.on_change = refresh_cspc_button_state
+    refresh_cspc_button_state()
 
     # ── Divider row ──
     divider_row = ft.Row(

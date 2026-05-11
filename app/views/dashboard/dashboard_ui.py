@@ -396,15 +396,17 @@ class DashboardUI:
             return card
 
         completion_ratio = ratio(resolved)
+        overview_text_primary = "#FFFFFF" if is_dark else _WHITE
+        overview_text_secondary = "#FFFFFF" if is_dark else ft.Colors.with_opacity(0.85, _WHITE)
         hero_card = ft.Container(
             content=ft.Row(
                 [
                     ft.Column(
                         [
-                            ft.Text("Analytics Overview", size=12 if is_mobile else 13, color=ft.Colors.with_opacity(0.85, _WHITE), font_family="Poppins-Medium"),
+                            ft.Text("Analytics Overview", size=12 if is_mobile else 13, color=overview_text_secondary, font_family="Poppins-Medium"),
                             ft.Container(height=4),
-                            ft.Text(str(total), size=34 if is_mobile else 38, color=_WHITE, font_family="Poppins-Bold"),
-                            ft.Text("Total submitted reports", size=11 if is_mobile else 12, color=ft.Colors.with_opacity(0.85, _WHITE), font_family="Poppins-Light"),
+                            ft.Text(str(total), size=34 if is_mobile else 38, color=overview_text_primary, font_family="Poppins-Bold"),
+                            ft.Text("Total submitted reports", size=11 if is_mobile else 12, color=overview_text_secondary, font_family="Poppins-Light"),
                         ],
                         spacing=0,
                         expand=True,
@@ -412,14 +414,14 @@ class DashboardUI:
                     ft.Container(
                         content=ft.Column(
                             [
-                                ft.Text("Completion", size=10 if is_mobile else 11, color=ft.Colors.with_opacity(0.85, _WHITE), font_family="Poppins-Medium"),
-                                ft.Text(percent_text(resolved), size=22 if is_mobile else 24, color=_WHITE, font_family="Poppins-Bold"),
+                                ft.Text("Completion", size=10 if is_mobile else 11, color=overview_text_secondary, font_family="Poppins-Medium"),
+                                ft.Text(percent_text(resolved), size=22 if is_mobile else 24, color=overview_text_primary, font_family="Poppins-Bold"),
                                 ft.Container(height=8),
                                 ft.ProgressBar(
                                     value=completion_ratio,
                                     bar_height=7,
-                                    color=_WHITE,
-                                    bgcolor=ft.Colors.with_opacity(0.25, _WHITE),
+                                    color=overview_text_primary,
+                                    bgcolor=ft.Colors.with_opacity(0.25, overview_text_primary),
                                     border_radius=8,
                                     width=96 if is_mobile else 120,
                                 ),

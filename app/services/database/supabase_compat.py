@@ -38,6 +38,16 @@ def _parse_dt(value: Any) -> Optional[datetime]:
         return None
 
 
+def _is_report_expired(expires_at: Any) -> bool:
+    """Check if a report has expired based on its expires_at timestamp."""
+    if not expires_at:
+        return False
+    expires_dt = _parse_dt(expires_at)
+    if not expires_dt:
+        return False
+    return datetime.now(timezone.utc) > expires_dt
+
+
 def _canon_status_display(value: Any) -> str:
     if not value:
         return "Pending"

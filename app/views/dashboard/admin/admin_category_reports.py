@@ -1,5 +1,6 @@
 import flet as ft
 from app.services.database.database import db
+from app.services.database.supabase_compat import _is_report_expired
 from app.views.dashboard.session_manager import SessionManager
 from app.views.dashboard.navigation_drawer import NavigationDrawerComponent
 from .dashboard_data_manager import DataManager, StatusNormalizer
@@ -58,7 +59,10 @@ def admin_category_reports(page: ft.Page, user_data=None, category=None, status=
 
     if status:
         sf = (status or "").strip().lower()
-        filtered_reports = [r for r in filtered_reports if (r.get("status") or "").strip().lower() == sf]
+        if sf == "expired":
+            filtered_reports = [r for r in filtered_reports if _is_report_expired(r.get("expires_at"))]
+        else:
+            filtered_reports = [r for r in filtered_reports if (r.get("status") or "").strip().lower() == sf]
 
     reports_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
     status_filter_buttons = ft.Row(spacing=6, scroll=ft.ScrollMode.AUTO, tight=True)
@@ -70,10 +74,12 @@ def admin_category_reports(page: ft.Page, user_data=None, category=None, status=
             if category
             else all_reports
         )
-        status_counts = {"Pending": 0, "In Progress": 0, "Resolved": 0, "Rejected": 0}
+        status_counts = {"Pending": 0, "In Progress": 0, "Resolved": 0, "Rejected": 0, "Expired": 0}
         for report in category_reports:
             canon = StatusNormalizer.canonicalize(report.get("status", "Pending"))
             status_counts[canon] = status_counts.get(canon, 0) + 1
+            if _is_report_expired(report.get("expires_at")):
+                status_counts["Expired"] = status_counts.get("Expired", 0) + 1
 
         # "All" button
         all_active = status is None
@@ -91,6 +97,13 @@ def admin_category_reports(page: ft.Page, user_data=None, category=None, status=
                 on_click=lambda e, st=s_label: admin_category_reports(page, user_data, category, st),
             )
             status_filter_buttons.controls.append(btn)
+
+        expired_count = status_counts.get("Expired", 0)
+        expired_btn = ft.Container(
+            content=ui_components.create_tab_button("Expired", expired_count, status == "Expired", is_dark=is_dark),
+            on_click=lambda e: admin_category_reports(page, user_data, category, "Expired"),
+        )
+        status_filter_buttons.controls.append(expired_btn)
 
     def handle_status_change(report_id, new_status, remarks=""):
         from app.services.audit.audit_logger import audit_logger

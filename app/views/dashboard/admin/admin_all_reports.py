@@ -1,5 +1,6 @@
 import flet as ft
 from app.services.database.database import db
+from app.services.database.supabase_compat import _is_report_expired
 from app.views.dashboard.session_manager import SessionManager
 from app.views.dashboard.navigation_drawer import NavigationDrawerComponent
 from .dashboard_data_manager import DataManager, StatusNormalizer
@@ -62,6 +63,7 @@ def admin_all_reports(page: ft.Page, user_data=None):
     def update_status_filters():
         status_filter_buttons.controls.clear()
         counts = DataManager.calculate_status_counts(all_reports)
+        expired_count = sum(1 for report in all_reports if _is_report_expired(report.get("expires_at")))
 
         status_mapping = {
             "All": len(all_reports),
@@ -69,6 +71,7 @@ def admin_all_reports(page: ft.Page, user_data=None):
             "In Progress": counts.get("in progress", 0),
             "Resolved": counts.get("resolved", 0),
             "Rejected": counts.get("rejected", 0),
+            "Expired": expired_count,
         }
 
         for label, count in status_mapping.items():
@@ -91,8 +94,11 @@ def admin_all_reports(page: ft.Page, user_data=None):
         category_list_view.controls.clear()
         filtered_reports = all_reports
         if current_filters["status"] != "All":
-            target = current_filters["status"].lower()
-            filtered_reports = [r for r in all_reports if (r.get("status") or "").lower() == target]
+            if current_filters["status"] == "Expired":
+                filtered_reports = [r for r in all_reports if _is_report_expired(r.get("expires_at"))]
+            else:
+                target = current_filters["status"].lower()
+                filtered_reports = [r for r in all_reports if (r.get("status") or "").lower() == target]
 
         category_counts = DataManager.calculate_category_counts(filtered_reports)
 

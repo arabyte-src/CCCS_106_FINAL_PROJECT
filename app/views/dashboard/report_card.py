@@ -1,5 +1,6 @@
 import flet as ft
 from app.services.database.database import db
+from app.services.database.supabase_compat import _is_report_expired
 
 # === Color Palette (mirrors dashboard_ui) — resolved per-instance ===
 _BG = "#F5F7FA"
@@ -185,6 +186,33 @@ class ReportCard:
                 )
             )
 
+        # Check if report is expired
+        is_expired = _is_report_expired(self.report.get("expires_at"))
+        
+        # Build menu items conditionally
+        menu_items = []
+        if not is_expired:
+            menu_items.append(ft.PopupMenuItem(icon=ft.Icons.EDIT_OUTLINED, text="Edit", on_click=self._show_edit_dialog))
+        menu_items.append(ft.PopupMenuItem(icon=ft.Icons.DELETE_OUTLINE, text="Delete", on_click=self._show_delete_dialog))
+        
+        # Show expired badge if expired
+        if is_expired:
+            col_children.insert(0, ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.LOCK_CLOCK_ROUNDED, size=14, color="#DC2626"),
+                        ft.Text("Ticket Expired - Editing Disabled", size=10,
+                                font_family="Poppins-Medium", color="#DC2626"),
+                    ],
+                    spacing=4,
+                ),
+                padding=ft.padding.symmetric(horizontal=8, vertical=6),
+                bgcolor=ft.Colors.with_opacity(0.1, "#DC2626"),
+                border_radius=6,
+                border=ft.border.all(1, ft.Colors.with_opacity(0.3, "#DC2626")),
+                margin=ft.margin.only(bottom=6),
+            ))
+
         return ft.Container(
             content=ft.Row(
                 [
@@ -203,16 +231,13 @@ class ReportCard:
                         spacing=3,
                         expand=True,
                     ),
-                    # 3-dot menu
+                    # 3-dot menu (conditionally with items)
                     ft.PopupMenuButton(
                         icon=ft.Icons.MORE_VERT,
                         icon_color=_NAVY_MUTED,
                         icon_size=18,
-                        items=[
-                            ft.PopupMenuItem(icon=ft.Icons.EDIT_OUTLINED, text="Edit", on_click=self._show_edit_dialog),
-                            ft.PopupMenuItem(icon=ft.Icons.DELETE_OUTLINE, text="Delete", on_click=self._show_delete_dialog),
-                        ],
-                    ),
+                        items=menu_items,
+                    ) if menu_items else ft.Container(),  # Show empty container if no menu items
                 ],
                 spacing=10,
                 alignment=ft.MainAxisAlignment.START,
@@ -274,6 +299,12 @@ class ReportCard:
         error_text = ft.Text("", size=11, color="#DC2626", visible=False)
 
         def save_and_close(e):
+            # Check if report has expired
+            if _is_report_expired(self.report.get("expires_at")):
+                error_text.value = "This ticket has expired and cannot be edited."
+                error_text.visible = True
+                self.page.update()
+                return
             if not issue_field.value or not issue_field.value.strip():
                 error_text.value = "Please describe the issue."
                 error_text.visible = True

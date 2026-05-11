@@ -1,5 +1,8 @@
-
 import flet as ft
+from datetime import datetime, timedelta, timezone
+
+from app.services.database.database import db
+from app.services.database.supabase_compat import _is_report_expired
 
 # ── Palette (matches app theme) ──
 _BG = "#F5F7FA"
@@ -10,6 +13,9 @@ _WHITE = "#FFFFFF"
 _CARD = "#FFFFFF"
 _BORDER = "#E0E6ED"
 _BORDER_LIGHT = "#F1F5F9"
+_GREEN = "#15803D"
+_AMBER = "#B45309"
+_RED = "#DC2626"
 
 _PENDING_TEXT = "#B45309"
 _PENDING_BG = "#FEF3C7"
@@ -19,6 +25,7 @@ _RESOLVED_TEXT = "#15803D"
 _RESOLVED_BG = "#DCFCE7"
 _REJECTED_TEXT = "#DC2626"
 _REJECTED_BG = "#FEE2E2"
+_RED = "#DC2626"
 
 _STATUS_MAP = {
     "pending":     (_PENDING_TEXT,  _PENDING_BG),
@@ -471,7 +478,30 @@ class UIComponents:
         remarks = report.get("admin_remarks")
         updated_at = report.get("status_updated_at")
         updated_by = report.get("status_updated_by")
+        created_at = report.get("created_at")
+        expires_at = report.get("expires_at")
         report_image = report.get("report_image")
+        is_expired = _is_report_expired(expires_at)
+
+        def _fmt_ts(value):
+            if not value:
+                return "-"
+            text = str(value).strip().replace("T", " ")
+            if "." in text:
+                text = text.split(".", 1)[0]
+            return text[:19]
+
+        def _can_extend():
+            if not expires_at:
+                return False
+            try:
+                expiry_text = str(expires_at).strip().replace("Z", "+00:00")
+                expiry_dt = datetime.fromisoformat(expiry_text)
+                if expiry_dt.tzinfo is None:
+                    expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
+                return expiry_dt <= datetime.now(timezone.utc) + timedelta(days=7)
+            except Exception:
+                return False
 
         # ── Remarks display ──
         remarks_section = ft.Container()
@@ -540,6 +570,25 @@ class UIComponents:
             if page and on_delete:
                 UIComponents.open_delete_dialog(page, report, on_delete)
 
+        def on_extend_click(e):
+            if not page:
+                return
+            try:
+                db.extend_report_expiration(report.get("id"), days=7)
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text("Expiration extended by 7 days."),
+                    bgcolor=_GREEN,
+                )
+                page.snack_bar.open = True
+                page.update()
+            except Exception as ex:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Failed to extend expiration: {ex}"),
+                    bgcolor=_RED,
+                )
+                page.snack_bar.open = True
+                page.update()
+
         delete_button = ft.Container(
             content=ft.Row(
                 [
@@ -558,6 +607,27 @@ class UIComponents:
             ink=True,
             visible=on_delete is not None,
         )
+
+        show_extend_button = _can_extend()
+        extend_button = ft.Container()
+        if show_extend_button:
+            extend_button = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.SCHEDULE_ROUNDED, size=14, color=_AMBER),
+                        ft.Text("Extend 7 Days", size=11, font_family="Poppins-SemiBold", color=_AMBER),
+                    ],
+                    spacing=6,
+                    tight=True,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                ),
+                bgcolor=ft.Colors.with_opacity(0.08, _AMBER),
+                padding=ft.padding.symmetric(horizontal=14, vertical=8),
+                border_radius=8,
+                border=ft.border.all(1, ft.Colors.with_opacity(0.25, _AMBER)),
+                on_click=on_extend_click,
+                ink=True,
+            )
 
         card_children = [
             # Header row: ID + description
@@ -645,7 +715,44 @@ class UIComponents:
                 ],
                 spacing=8,
             ),
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.CALENDAR_TODAY_ROUNDED, size=12, color=_NAVY_MUTED),
+                    ft.Text(f"Created {_fmt_ts(created_at)}", size=9, font_family="Poppins-Light", color=_NAVY_MUTED),
+                ],
+                spacing=4,
+            ),
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.TIMER_OUTLINED, size=12, color=_NAVY_MUTED),
+                    ft.Text(
+                        f"Expires {_fmt_ts(expires_at)}" + (" (Expired)" if is_expired else ""),
+                        size=9,
+                        font_family="Poppins-Light",
+                        color=_RED if is_expired else _NAVY_MUTED,
+                    ),
+                ],
+                spacing=4,
+            ),
         ])
+
+        if is_expired:
+            card_children.insert(
+                0,
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Icon(ft.Icons.LOCK_CLOCK_ROUNDED, size=14, color=_RED),
+                            ft.Text("Expired and awaiting deletion grace window", size=10, font_family="Poppins-Medium", color=_RED),
+                        ],
+                        spacing=4,
+                    ),
+                    padding=ft.padding.symmetric(horizontal=8, vertical=6),
+                    bgcolor=ft.Colors.with_opacity(0.08, _RED),
+                    border_radius=6,
+                    border=ft.border.all(1, ft.Colors.with_opacity(0.25, _RED)),
+                ),
+            )
 
         # Add remarks if present
         if remarks:
@@ -656,8 +763,11 @@ class UIComponents:
             card_children.append(update_info)
 
         # Action row: update + delete buttons
+        action_buttons = [update_button, delete_button]
+        if show_extend_button:
+            action_buttons.insert(0, extend_button)
         card_children.append(
-            ft.Row([delete_button, update_button], alignment=ft.MainAxisAlignment.END, spacing=8),
+            ft.Row(action_buttons, alignment=ft.MainAxisAlignment.END, spacing=8),
         )
 
         return ft.Container(
