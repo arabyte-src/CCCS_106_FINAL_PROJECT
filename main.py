@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import os
+import socket
 from urllib.parse import urlparse, parse_qs, urlencode
+from typing import Optional, Tuple
 import flet as ft
 from app.views.homepage import homepage
 from app.views.loginpage import loginpage
@@ -8,7 +12,7 @@ from app.services.session import get_session_manager
 from app.services.google.oauth_server import exchange_code_for_token
 
 
-def _read_oauth_params(page: ft.Page) -> tuple[str | None, str | None]:
+def _read_oauth_params(page: ft.Page) -> Tuple[Optional[str], Optional[str]]:
     code = None
     state = None
 
@@ -42,7 +46,6 @@ def _resolve_redirect_uri(page: ft.Page) -> str:
         return env_redirect_uri
 
     return "http://localhost:8550/api/oauth/redirect"
-
 
 def main(page: ft.Page):    
     backend_name = type(db.backend).__name__
@@ -110,7 +113,6 @@ def main(page: ft.Page):
             if oauth_user.get("picture"):
                 user_data["picture"] = oauth_user["picture"]
 
-            from app.services.database.database import db
             from app.services.audit.audit_logger import audit_logger
             from app.services.activity.activity_monitor import activity_monitor
             from app.views.dashboard.user_dashboard import user_dashboard
@@ -168,8 +170,8 @@ APP_KWARGS = {
     "assets_dir": os.path.join(os.path.dirname(__file__), "assets"),
     "upload_dir": "storage/temp",
     "view": ft.AppView.WEB_BROWSER,
-    "host": "0.0.0.0",
-    "port": int(os.environ.get("PORT", 8550)),
+    "host": "127.0.0.1",
+    "port": 8550,
 }
 
 # ASGI export for production servers
@@ -178,7 +180,7 @@ app = ft.app(export_asgi_app=True, **APP_KWARGS)
 # Normalize Google callback path to root so Flet session handling can complete login.
 if hasattr(app, "get"):
     @app.get("/api/oauth/redirect")
-    async def oauth_redirect(code: str | None = None, state: str | None = None):
+    async def oauth_redirect(code: Optional[str] = None, state: Optional[str] = None):
         params = {k: v for k, v in {"code": code, "state": state}.items() if v}
         target = "/"
         if params:

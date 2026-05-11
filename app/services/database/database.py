@@ -1,6 +1,8 @@
 import sqlite3
 import hashlib
 
+from .supabase_compat import Database as _SupabaseDatabase
+
 class Database:
     def __init__(self, db_name="app_database.db"):
         self.db_name = db_name
@@ -501,5 +503,7 @@ class Database:
         rows = cursor.fetchall()
         conn.close()
         return [{'name': r[0], 'email': r[1], 'count': r[2]} for r in rows]
+
+Database = _SupabaseDatabase
 
 db = Database()
