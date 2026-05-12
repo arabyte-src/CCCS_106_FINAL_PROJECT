@@ -64,6 +64,24 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_E8EBF6EAAAF94610ACC12D4C58D9E8BD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_328CE1B6927E41CE9E3ABD395DFED159 }}
 
+      - name: Resolve App Service resource group
+        id: resolve-rg
+        shell: bash
+        run: |
+          RG=$(az webapp list --query "[?name=='fixit-app'].resourceGroup | [0]" -o tsv)
+          if [ -z "$RG" ]; then
+            echo "Unable to resolve resource group for App Service 'fixit-app'."
+            exit 1
+          fi
+          echo "resource_group=$RG" >> "$GITHUB_OUTPUT"
+
+      - name: Restart App Service before deploy
+        shell: bash
+        run: |
+          az webapp restart \
+            --name fixit-app \
+            --resource-group "${{ steps.resolve-rg.outputs.resource_group }}"
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
