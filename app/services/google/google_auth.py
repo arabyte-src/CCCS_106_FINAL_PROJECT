@@ -20,6 +20,7 @@ REDIRECT_PATH = "/api/oauth/redirect"
 
 def resolve_redirect_uri(page=None):
   """Resolve the OAuth redirect URI for the current runtime."""
+  configured_redirect_uri = os.environ.get("REDIRECT_URI")
   page_url = getattr(page, "url", "") if page is not None else ""
   if page_url:
     parsed = urlparse(page_url)
@@ -32,9 +33,14 @@ def resolve_redirect_uri(page=None):
       if host in {"127.0.0.1", "localhost", "::1"}:
         return f"http://localhost{port}{REDIRECT_PATH}"
 
+      # In hosted environments, prefer the explicit REDIRECT_URI so OAuth does
+      # not break when users hit alternate app hostnames.
+      if configured_redirect_uri:
+        return configured_redirect_uri
+
       return f"{parsed.scheme}://{parsed.netloc}{REDIRECT_PATH}"
 
-  return os.environ.get("REDIRECT_URI", DEFAULT_REDIRECT_URI)
+  return configured_redirect_uri or DEFAULT_REDIRECT_URI
 
 # Read from environment variable
 CLIENT_SECRET_JSON = os.environ.get("GOOGLE_CLIENT_SECRET")
