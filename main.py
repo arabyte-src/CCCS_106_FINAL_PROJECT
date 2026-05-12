@@ -165,13 +165,18 @@ _debug_has_google_secret = bool(os.environ.get("GOOGLE_CLIENT_SECRET"))
 print(f"[FIXIT-DEBUG] REDIRECT_URI={_debug_redirect}")
 print(f"[FIXIT-DEBUG] GOOGLE_CLIENT_SECRET present: {_debug_has_google_secret}")
 
+# Allow runtime configuration for host/port so the app can run on Azure App Service.
+HOST = os.environ.get("HOST") or os.environ.get("FLET_HOST") or os.environ.get("WEBSITES_HOSTNAME") or "127.0.0.1"
+# Azure and many hosts provide the port via PORT or WEBSITES_PORT; default to 8550 for local dev.
+PORT = int(os.environ.get("PORT") or os.environ.get("WEBSITES_PORT") or os.environ.get("FLET_PORT") or 8550)
+
 APP_KWARGS = {
     "target": main,
     "assets_dir": os.path.join(os.path.dirname(__file__), "assets"),
     "upload_dir": "storage/temp",
     "view": ft.AppView.WEB_BROWSER,
-    "host": "127.0.0.1",
-    "port": 8550,
+    "host": HOST,
+    "port": PORT,
 }
 
 # ASGI export for production servers

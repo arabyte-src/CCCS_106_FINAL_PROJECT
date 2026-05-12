@@ -24,6 +24,14 @@ def resolve_redirect_uri(page=None):
   if page_url:
     parsed = urlparse(page_url)
     if parsed.scheme and parsed.netloc:
+      host = parsed.hostname or ""
+      port = f":{parsed.port}" if parsed.port else ""
+
+      # Google OAuth credentials in this project are registered for localhost,
+      # so normalize loopback origins to the configured callback host.
+      if host in {"127.0.0.1", "localhost", "::1"}:
+        return f"http://localhost{port}{REDIRECT_PATH}"
+
       return f"{parsed.scheme}://{parsed.netloc}{REDIRECT_PATH}"
 
   return os.environ.get("REDIRECT_URI", DEFAULT_REDIRECT_URI)

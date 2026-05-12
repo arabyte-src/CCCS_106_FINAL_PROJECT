@@ -172,7 +172,7 @@ def loginpage(page: ft.Page):
 
         try:
             # Redirect URI must exactly match one configured in Google Cloud OAuth client.
-                redirect_uri = resolve_redirect_uri(page)
+            redirect_uri = resolve_redirect_uri(page)
 
             auth_url, state = get_auth_url(redirect_uri)
             
