@@ -27,6 +27,13 @@ def resolve_redirect_uri(page=None):
     if parsed.scheme and parsed.netloc:
       host = parsed.hostname or ""
       port = f":{parsed.port}" if parsed.port else ""
+      scheme = parsed.scheme
+
+      # Flet page.url may use websocket schemes; Google OAuth requires HTTP(S).
+      if scheme == "ws":
+        scheme = "http"
+      elif scheme == "wss":
+        scheme = "https"
 
       # Google OAuth credentials in this project are registered for localhost,
       # so normalize loopback origins to the configured callback host.
@@ -38,7 +45,11 @@ def resolve_redirect_uri(page=None):
       if configured_redirect_uri:
         return configured_redirect_uri
 
-      return f"{parsed.scheme}://{parsed.netloc}{REDIRECT_PATH}"
+      netloc = parsed.netloc
+      if parsed.port is not None:
+        netloc = f"{host}{port}"
+
+      return f"{scheme}://{netloc}{REDIRECT_PATH}"
 
   return configured_redirect_uri or DEFAULT_REDIRECT_URI
 
