@@ -10,6 +10,7 @@ from app.views.loginpage import loginpage
 from app.services.database.database import db
 from app.services.session import get_session_manager
 from app.services.google.oauth_server import exchange_code_for_token
+from app.services.google.google_auth import resolve_redirect_uri
 
 
 def _read_oauth_params(page: ft.Page) -> Tuple[Optional[str], Optional[str]]:
@@ -39,13 +40,6 @@ def _read_oauth_params(page: ft.Page) -> Tuple[Optional[str], Optional[str]]:
 
     return code, state
 
-
-def _resolve_redirect_uri(page: ft.Page) -> str:
-    env_redirect_uri = os.environ.get("REDIRECT_URI")
-    if env_redirect_uri:
-        return env_redirect_uri
-
-    return "http://localhost:8550/api/oauth/redirect"
 
 def main(page: ft.Page):    
     backend_name = type(db.backend).__name__
@@ -104,7 +98,7 @@ def main(page: ft.Page):
             role = (page.session.get("oauth_role") or "Student").strip().lower()
             user_type = "faculty" if role == "faculty" else "student"
 
-            oauth_user = exchange_code_for_token(code, _resolve_redirect_uri(page))
+            oauth_user = exchange_code_for_token(code, resolve_redirect_uri(page))
             user_data = {
                 "name": oauth_user.get("name") or "User",
                 "email": oauth_user["email"],
@@ -164,6 +158,12 @@ def main(page: ft.Page):
 
 import secrets as _secrets
 os.environ.setdefault("FLET_SECRET_KEY", _secrets.token_hex(16))
+
+# Diagnostic: surface OAuth-related environment settings at startup for debugging
+_debug_redirect = os.environ.get("REDIRECT_URI", "(not set)")
+_debug_has_google_secret = bool(os.environ.get("GOOGLE_CLIENT_SECRET"))
+print(f"[FIXIT-DEBUG] REDIRECT_URI={_debug_redirect}")
+print(f"[FIXIT-DEBUG] GOOGLE_CLIENT_SECRET present: {_debug_has_google_secret}")
 
 APP_KWARGS = {
     "target": main,

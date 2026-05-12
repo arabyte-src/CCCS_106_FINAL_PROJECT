@@ -14,7 +14,19 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile"
 ]
 
-REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:8550/api/oauth/redirect")
+DEFAULT_REDIRECT_URI = "http://localhost:8550/api/oauth/redirect"
+REDIRECT_PATH = "/api/oauth/redirect"
+
+
+def resolve_redirect_uri(page=None):
+  """Resolve the OAuth redirect URI for the current runtime."""
+  page_url = getattr(page, "url", "") if page is not None else ""
+  if page_url:
+    parsed = urlparse(page_url)
+    if parsed.scheme and parsed.netloc:
+      return f"{parsed.scheme}://{parsed.netloc}{REDIRECT_PATH}"
+
+  return os.environ.get("REDIRECT_URI", DEFAULT_REDIRECT_URI)
 
 # Read from environment variable
 CLIENT_SECRET_JSON = os.environ.get("GOOGLE_CLIENT_SECRET")
@@ -322,46 +334,47 @@ class OAuthRedirectHandler(BaseHTTPRequestHandler):
 
 
 def google_oauth_login(page=None):
-    try:
-        flow = Flow.from_client_secrets_file(
-            CLIENT_SECRETS_FILE,
-            scopes=SCOPES,
-            redirect_uri=REDIRECT_URI
-        )
+  try:
+    redirect_uri = resolve_redirect_uri(page)
+    flow = Flow.from_client_secrets_file(
+      CLIENT_SECRETS_FILE,
+      scopes=SCOPES,
+      redirect_uri=redirect_uri,
+    )
 
-        auth_url, _ = flow.authorization_url(prompt="consent")
-        webbrowser.open(auth_url)
+    auth_url, _ = flow.authorization_url(prompt="consent")
+    webbrowser.open(auth_url)
 
-        # Use the app's configured OAuth redirect port.
-        port = get_available_port()
-        server_address = ("", port)
-        httpd = HTTPServer(server_address, OAuthRedirectHandler)
-        httpd.auth_code = None
-        print(f"Waiting for OAuth redirect on port {port}...")
-        httpd.handle_request()
+    # Use the app's configured OAuth redirect port.
+    port = get_available_port()
+    server_address = ("", port)
+    httpd = HTTPServer(server_address, OAuthRedirectHandler)
+    httpd.auth_code = None
+    print(f"Waiting for OAuth redirect on port {port}...")
+    httpd.handle_request()
 
-        if not httpd.auth_code:
-            raise Exception("No authorization code received.")
+    if not httpd.auth_code:
+      raise Exception("No authorization code received.")
 
-        flow.fetch_token(code=httpd.auth_code)
-        creds = flow.credentials
+    flow.fetch_token(code=httpd.auth_code)
+    creds = flow.credentials
 
-        resp = requests.get(
-            "https://www.googleapis.com/oauth2/v1/userinfo",
-            params={"alt": "json"},
-            headers={"Authorization": f"Bearer {creds.token}"}
-        )
-        user_info = resp.json()
-        email = user_info.get("email")
-        name = user_info.get("name")
+    resp = requests.get(
+      "https://www.googleapis.com/oauth2/v1/userinfo",
+      params={"alt": "json"},
+      headers={"Authorization": f"Bearer {creds.token}"},
+    )
+    user_info = resp.json()
+    email = user_info.get("email")
+    name = user_info.get("name")
 
-        if email.endswith("@my.cspc.edu.ph"):
-            return {"name": name, "email": email, "picture": user_info.get("picture")}
-        else:
-            raise Exception("Use your CSPC school email!")
+    if email.endswith("@my.cspc.edu.ph"):
+      return {"name": name, "email": email, "picture": user_info.get("picture")}
 
-    except Exception as e:
-        raise Exception(f"Google login failed: {str(e)}")
+    raise Exception("Use your CSPC school email!")
+
+  except Exception as e:
+    raise Exception(f"Google login failed: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -140,3 +140,18 @@ class TestOAuthIntegration:
         assert _STORED_PASSWORD_HASH is not None
         assert isinstance(_STORED_PASSWORD_HASH, str)
         assert len(_STORED_PASSWORD_HASH) > 0
+
+    def test_resolve_redirect_uri_prefers_current_page_origin(self, monkeypatch):
+        from app.services.google.google_auth import resolve_redirect_uri
+
+        monkeypatch.setenv("REDIRECT_URI", "https://fixit-app.azurewebsites.net/api/oauth/redirect")
+        page = Mock(url="http://127.0.0.1:8550/?code=test&state=test")
+
+        assert resolve_redirect_uri(page) == "http://127.0.0.1:8550/api/oauth/redirect"
+
+    def test_resolve_redirect_uri_falls_back_to_env(self, monkeypatch):
+        from app.services.google.google_auth import resolve_redirect_uri
+
+        monkeypatch.setenv("REDIRECT_URI", "https://fixit-app.azurewebsites.net/api/oauth/redirect")
+
+        assert resolve_redirect_uri(None) == "https://fixit-app.azurewebsites.net/api/oauth/redirect"

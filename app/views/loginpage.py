@@ -1,6 +1,7 @@
 import flet as ft
 import os
 from app.services.google.google_auth import google_oauth_login
+from app.services.google.google_auth import resolve_redirect_uri
 from app.services.auth.admin_account import validate_admin_credentials
 from app.services.database.database import db
 from app.services.audit.audit_logger import audit_logger
@@ -171,9 +172,7 @@ def loginpage(page: ft.Page):
 
         try:
             # Redirect URI must exactly match one configured in Google Cloud OAuth client.
-            redirect_uri = os.environ.get("REDIRECT_URI")
-            if not redirect_uri:
-                redirect_uri = "http://localhost:8550/api/oauth/redirect"
+                redirect_uri = resolve_redirect_uri(page)
 
             auth_url, state = get_auth_url(redirect_uri)
             
